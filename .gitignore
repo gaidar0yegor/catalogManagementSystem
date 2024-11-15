@@ -48,10 +48,6 @@ yarn-error.log*
 # Docker
 .docker/
 
-# Database
-*.sqlite3
-data/
-
 # Media and Static files
 media/
 static/
