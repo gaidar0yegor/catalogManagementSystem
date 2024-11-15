@@ -134,4 +134,9 @@ Development guidelines and best practices can be found in [docs/development/READ
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+PROPRIETARY AND CONFIDENTIAL
+
+This software is proprietary and confidential. All rights reserved.
+No part of this software may be reproduced, distributed, or transmitted in any form without prior written permission.
+
+Copyright (c) 2024. All rights reserved.
