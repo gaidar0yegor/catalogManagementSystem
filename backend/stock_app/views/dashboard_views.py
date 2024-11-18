@@ -2,7 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, F
+from django.db.models import Sum, F, DecimalField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -15,7 +16,6 @@ from ..models import (
     DataUploadHistory,
     Notification
 )
-from ..serializers import DashboardMetricsSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,12 @@ class DashboardViewSet(viewsets.ViewSet):
 
             # Calculate total stock value
             total_value = Stock.objects.aggregate(
-                total=Sum(F('quantity') * F('product__unit_price'))
-            )['total'] or 0
+                total=Coalesce(
+                    Sum(F('quantity') * F('product__unit_price')),
+                    0,
+                    output_field=DecimalField()
+                )
+            )['total']
             logger.debug(f"Total stock value: {total_value}")
 
             # Get recent imports (last 7 days)
@@ -69,7 +73,7 @@ class DashboardViewSet(viewsets.ViewSet):
             # Format recent activity for frontend
             activity_list = [{
                 'id': activity.id,
-                'date': activity.timestamp,
+                'date': activity.timestamp.isoformat(),
                 'type': activity.movement_type,
                 'description': f"{activity.get_movement_type_display()} - {activity.product.name} ({activity.quantity} units)"
             } for activity in recent_activity]
@@ -77,7 +81,7 @@ class DashboardViewSet(viewsets.ViewSet):
             # Format imports for frontend
             imports_list = [{
                 'id': imp.id,
-                'date': imp.upload_date,
+                'date': imp.upload_date.isoformat(),
                 'type': imp.get_upload_type_display(),
                 'status': imp.status,
                 'processed': imp.records_processed,
@@ -87,7 +91,7 @@ class DashboardViewSet(viewsets.ViewSet):
             # Format alerts for frontend
             alerts_list = [{
                 'id': alert.id,
-                'type': alert.type,
+                'type': alert.get_type_display(),
                 'message': alert.message,
                 'severity': 'warning' if alert.type == 'STOCK_LOW' else 'info'
             } for alert in alerts]
@@ -109,6 +113,6 @@ class DashboardViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error fetching dashboard metrics: {str(e)}", exc_info=True)
             return Response(
-                {'error': 'Failed to fetch dashboard metrics'},
+                {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
