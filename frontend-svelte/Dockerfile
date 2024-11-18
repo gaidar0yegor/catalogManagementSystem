@@ -13,11 +13,12 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Set environment variables for build
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Build the app
 RUN npm run build
-
-# List contents of dist directory to verify build
-RUN ls -la dist/
 
 # Production stage
 FROM nginx:alpine
@@ -25,16 +26,13 @@ FROM nginx:alpine
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Create nginx directories with proper permissions
+RUN mkdir -p /var/cache/nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx /usr/share/nginx/html && \
+    chmod -R 755 /var/cache/nginx /usr/share/nginx/html
+
 # Copy built files from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Verify files are copied
-RUN ls -la /usr/share/nginx/html/
-
-# Create nginx cache directory with proper permissions
-RUN mkdir -p /var/cache/nginx && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chmod -R 755 /var/cache/nginx
+COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \

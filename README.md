@@ -1,6 +1,6 @@
 # Stock Management System
 
-A modern stock management system built with Django and React, designed for efficient inventory control and supplier management.
+A modern stock management system built with Django and Svelte, designed for efficient inventory control and supplier management.
 
 ## Features
 
@@ -15,7 +15,7 @@ A modern stock management system built with Django and React, designed for effic
 ## Tech Stack
 
 - **Backend**: Django with Django REST Framework
-- **Frontend**: React with TypeScript
+- **Frontend**: Svelte with TypeScript
 - **Database**: PostgreSQL
 - **Cache & Message Broker**: Redis
 - **Task Queue**: Celery
@@ -32,13 +32,13 @@ A modern stock management system built with Django and React, designed for effic
 │   │   ├── views/          # API views
 │   │   └── tests/          # Unit tests
 │   └── stock_management/   # Project settings
-├── frontend/               # React frontend
+├── frontend-svelte/        # Svelte frontend
 │   └── src/
-│       ├── components/     # Reusable components
-│       ├── pages/         # Page components
-│       ├── store/         # Redux store
-│       ├── services/      # API services
-│       └── types/         # TypeScript types
+│       ├── lib/           # Application code
+│       │   ├── components/ # Reusable components
+│       │   └── stores/    # Svelte stores
+│       ├── app.css       # Global styles
+│       └── App.svelte    # Root component
 ├── docker/                # Docker configurations
 │   ├── backend/          # Backend Docker setup
 │   ├── frontend/         # Frontend Docker setup
@@ -64,20 +64,20 @@ A modern stock management system built with Django and React, designed for effic
    cd stock-management
    ```
 
-2. Run the setup script:
+2. Copy the example environment file:
    ```bash
-   ./setup.sh
+   cp .env.example .env
    ```
 
 3. Start the application:
    ```bash
-   docker-compose up
+   docker-compose up --build
    ```
 
 4. Access the application:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000/api
-   - Admin Interface: http://localhost:8000/admin
+   - Frontend: http://localhost
+   - Backend API: http://localhost/api
+   - Admin Interface: http://localhost/admin
 
 ## Development
 
@@ -94,11 +94,6 @@ A modern stock management system built with Django and React, designed for effic
 
 ### Environment Variables
 
-Copy the example environment file:
-```bash
-cp .env.example .env
-```
-
 Key environment variables:
 - `DJANGO_SECRET_KEY`: Django secret key
 - `DJANGO_DEBUG`: Debug mode
@@ -110,8 +105,8 @@ Key environment variables:
 ## API Documentation
 
 API documentation is available at:
-- Swagger UI: http://localhost:8000/api/swagger/
-- ReDoc: http://localhost:8000/api/redoc/
+- Swagger UI: http://localhost/api/swagger/
+- ReDoc: http://localhost/api/redoc/
 
 Detailed API documentation can be found in [docs/api/README.md](docs/api/README.md).
 
@@ -126,7 +121,7 @@ Development guidelines and best practices can be found in [docs/development/READ
 ## Docker Services
 
 - **backend**: Django application
-- **frontend**: React application
+- **frontend**: Svelte application
 - **db**: PostgreSQL database
 - **redis**: Redis cache and message broker
 - **celery**: Celery worker for async tasks

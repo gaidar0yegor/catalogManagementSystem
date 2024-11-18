@@ -1,52 +1,40 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Build stage
+FROM python:3.9-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Set work directory
+# Set working directory
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    netcat-traditional \
-    curl \
+    netcat-openbsd \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create non-root user
-RUN addgroup --system appgroup && \
-    adduser --system --group appuser && \
-    chown -R appuser:appgroup /app
+# Copy entrypoint script first
+COPY entrypoint.sh .
+RUN dos2unix entrypoint.sh && \
+    chmod +x entrypoint.sh && \
+    ls -la entrypoint.sh  # Verify file exists and permissions
 
-# Create media and static directories with proper permissions
-RUN mkdir -p /app/media /app/static && \
-    chown -R appuser:appgroup /app/media /app/static && \
-    chmod -R 777 /app/media /app/static
+# Create necessary directories
+RUN mkdir -p /app/static /app/media /app/upload_temp && \
+    chmod -R 755 /app/static /app/media /app/upload_temp
 
 # Copy project files
-COPY --chown=appuser:appgroup . .
+COPY . .
 
-# Make entrypoint script executable
-COPY --chown=appuser:appgroup entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Switch to non-root user
-USER appuser
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health/ || exit 1
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Expose port
 EXPOSE 8000
 
-# Run entrypoint script
-ENTRYPOINT ["/entrypoint.sh"]
+# Set default command
+CMD ["/app/entrypoint.sh"]

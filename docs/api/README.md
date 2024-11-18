@@ -7,16 +7,16 @@ This document describes the REST API endpoints for the Stock Management System. 
 ## Base URL
 
 ```
-http://localhost:8000/api/stock-app/
+http://localhost/api/
 ```
 
 ## Authentication
 
-All API endpoints require authentication. The API uses token-based authentication.
+The API uses JWT (JSON Web Token) authentication.
 
 To obtain a token:
 ```http
-POST /api/auth/token/
+POST /api/token/
 Content-Type: application/json
 
 {
@@ -25,9 +25,27 @@ Content-Type: application/json
 }
 ```
 
-Use the token in subsequent requests:
+Response:
+```json
+{
+    "access": "your-access-token",
+    "refresh": "your-refresh-token"
+}
+```
+
+To refresh a token:
 ```http
-Authorization: Token your-token-here
+POST /api/token/refresh/
+Content-Type: application/json
+
+{
+    "refresh": "your-refresh-token"
+}
+```
+
+Use the access token in subsequent requests:
+```http
+Authorization: Bearer your-access-token
 ```
 
 ## Endpoints
@@ -36,7 +54,7 @@ Authorization: Token your-token-here
 
 #### List Products
 ```http
-GET /products/
+GET /api/products/
 ```
 
 Response:
@@ -44,10 +62,9 @@ Response:
 [
     {
         "id": 1,
-        "name": "Arduino Mega 2560 R3",
-        "description": "Microcontroller board based on the ATmega2560",
-        "sku": "ARD-MEGA2560-R3",
-        "supplier": 1,
+        "name": "Test Product",
+        "description": "Test product description",
+        "sku": "TEST-001",
         "unit_price": "39.99",
         "created_at": "2024-11-15T12:00:00Z",
         "updated_at": "2024-11-15T12:00:00Z"
@@ -57,47 +74,45 @@ Response:
 
 #### Create Product
 ```http
-POST /products/
+POST /api/products/
 Content-Type: application/json
 
 {
-    "name": "Arduino Mega 2560 R3",
-    "description": "Microcontroller board based on the ATmega2560",
-    "sku": "ARD-MEGA2560-R3",
-    "supplier": 1,
+    "name": "Test Product",
+    "description": "Test product description",
+    "sku": "TEST-001",
     "unit_price": "39.99"
 }
 ```
 
 #### Get Product
 ```http
-GET /products/{id}/
+GET /api/products/{id}/
 ```
 
 #### Update Product
 ```http
-PUT /products/{id}/
+PUT /api/products/{id}/
 Content-Type: application/json
 
 {
-    "name": "Arduino Mega 2560 R3",
+    "name": "Test Product",
     "description": "Updated description",
-    "sku": "ARD-MEGA2560-R3",
-    "supplier": 1,
+    "sku": "TEST-001",
     "unit_price": "39.99"
 }
 ```
 
 #### Delete Product
 ```http
-DELETE /products/{id}/
+DELETE /api/products/{id}/
 ```
 
 ### Stock
 
 #### List Stock
 ```http
-GET /stocks/
+GET /api/stocks/
 ```
 
 Response:
@@ -106,6 +121,7 @@ Response:
     {
         "id": 1,
         "product": 1,
+        "product_name": "Test Product",
         "quantity": 100,
         "location": "Warehouse A",
         "last_checked": "2024-11-15T12:00:00Z",
@@ -117,7 +133,7 @@ Response:
 
 #### Create Stock
 ```http
-POST /stocks/
+POST /api/stocks/
 Content-Type: application/json
 
 {
@@ -131,12 +147,12 @@ Content-Type: application/json
 
 #### Get Stock
 ```http
-GET /stocks/{id}/
+GET /api/stocks/{id}/
 ```
 
 #### Update Stock
 ```http
-PUT /stocks/{id}/
+PUT /api/stocks/{id}/
 Content-Type: application/json
 
 {
@@ -150,14 +166,14 @@ Content-Type: application/json
 
 #### Delete Stock
 ```http
-DELETE /stocks/{id}/
+DELETE /api/stocks/{id}/
 ```
 
 ### Stock Movements
 
 #### List Movements
 ```http
-GET /movements/
+GET /api/stock-movements/
 ```
 
 Response:
@@ -166,11 +182,12 @@ Response:
     {
         "id": 1,
         "product": 1,
+        "product_name": "Test Product",
         "movement_type": "IN",
         "quantity": 50,
-        "reference_number": "REF001",
         "timestamp": "2024-11-15T12:00:00Z",
         "performed_by": 1,
+        "performed_by_username": "admin",
         "notes": "Initial stock"
     }
 ]
@@ -178,79 +195,55 @@ Response:
 
 #### Create Movement
 ```http
-POST /movements/
+POST /api/stock-movements/
 Content-Type: application/json
 
 {
     "product": 1,
     "movement_type": "IN",
     "quantity": 50,
-    "reference_number": "REF001",
     "notes": "Initial stock"
 }
 ```
 
 #### Get Movement
 ```http
-GET /movements/{id}/
+GET /api/stock-movements/{id}/
 ```
 
-### Suppliers
+### Reports
 
-#### List Suppliers
+#### Daily Summary
 ```http
-GET /suppliers/
+GET /api/stock-movements/daily_summary/
 ```
 
 Response:
 ```json
-[
-    {
-        "id": 1,
-        "name": "Tech Electronics Supply Co.",
-        "email": "contact@techelectronics.com",
-        "phone": "+1-555-123-4567",
-        "address": "123 Tech Park Drive",
-        "created_at": "2024-11-15T12:00:00Z",
-        "updated_at": "2024-11-15T12:00:00Z"
-    }
-]
-```
-
-#### Create Supplier
-```http
-POST /suppliers/
-Content-Type: application/json
-
 {
-    "name": "Tech Electronics Supply Co.",
-    "email": "contact@techelectronics.com",
-    "phone": "+1-555-123-4567",
-    "address": "123 Tech Park Drive"
+    "date": "2024-11-15",
+    "total_in": 500,
+    "total_out": 200,
+    "net_change": 300,
+    "movements_count": 10
 }
 ```
 
-#### Get Supplier
+#### Weekly Summary
 ```http
-GET /suppliers/{id}/
+GET /api/stock-movements/weekly_summary/
 ```
 
-#### Update Supplier
-```http
-PUT /suppliers/{id}/
-Content-Type: application/json
-
+Response:
+```json
 {
-    "name": "Tech Electronics Supply Co.",
-    "email": "contact@techelectronics.com",
-    "phone": "+1-555-123-4567",
-    "address": "123 Tech Park Drive"
+    "week_start": "2024-11-11",
+    "week_end": "2024-11-17",
+    "total_in": 2000,
+    "total_out": 800,
+    "net_change": 1200,
+    "movements_count": 45
 }
-```
-
-#### Delete Supplier
-```http
-DELETE /suppliers/{id}/
 ```
 
 ## Error Responses
@@ -293,14 +286,14 @@ X-RateLimit-Reset: 1605451200
 List endpoints support pagination:
 
 ```http
-GET /products/?page=1&page_size=10
+GET /api/products/?page=1&page_size=10
 ```
 
 Response includes pagination metadata:
 ```json
 {
     "count": 100,
-    "next": "http://api.example.org/products/?page=2",
+    "next": "http://localhost/api/products/?page=2",
     "previous": null,
     "results": []
 }
@@ -311,9 +304,9 @@ Response includes pagination metadata:
 Most list endpoints support filtering:
 
 ```http
-GET /products/?supplier=1
-GET /stocks/?location=Warehouse%20A
-GET /movements/?movement_type=IN
+GET /api/products/?search=test
+GET /api/stocks/?location=Warehouse%20A
+GET /api/stock-movements/?movement_type=IN
 ```
 
 ## Ordering
@@ -321,24 +314,17 @@ GET /movements/?movement_type=IN
 List endpoints support ordering:
 
 ```http
-GET /products/?ordering=-created_at
-GET /stocks/?ordering=quantity
+GET /api/products/?ordering=-created_at
+GET /api/stocks/?ordering=quantity
 ```
 
-## Search
+## Websocket Support
 
-List endpoints support search:
+Real-time updates are available through WebSocket connections:
 
-```http
-GET /products/?search=arduino
-GET /suppliers/?search=tech
-```
-
-## Versioning
-
-The API version is included in the URL:
-```http
-GET /api/v1/stock-app/products/
-```
-
-Current version: v1
+```javascript
+const ws = new WebSocket('ws://localhost/ws/stocks/');
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log('Stock update:', data);
+};

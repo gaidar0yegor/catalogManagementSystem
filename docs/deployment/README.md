@@ -14,8 +14,9 @@ Quick start:
 docker-compose up --build
 
 # Access the application
-Frontend: http://localhost:5173
-Backend API: http://localhost:8000/api
+Frontend: http://localhost
+Backend API: http://localhost/api
+Admin Interface: http://localhost/admin
 ```
 
 ## Manual Deployment
@@ -24,9 +25,10 @@ If you prefer not to use Docker, you can deploy the application manually.
 
 ### Prerequisites
 
-- Python 3.8+
-- Node.js 16+
+- Python 3.11+
+- Node.js 18+
 - PostgreSQL 13+
+- Redis 7+
 - Nginx
 
 ### Backend Deployment
@@ -48,6 +50,7 @@ export DEBUG=False
 export SECRET_KEY=your-secret-key
 export DATABASE_URL=postgres://user:password@localhost:5432/dbname
 export ALLOWED_HOSTS=your-domain.com
+export REDIS_URL=redis://localhost:6379/0
 ```
 
 4. Run migrations:
@@ -62,7 +65,12 @@ python manage.py collectstatic --no-input
 
 6. Configure Gunicorn:
 ```bash
-gunicorn stock_management.wsgi:application --bind 0.0.0.0:8000
+gunicorn stock_management.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2
+```
+
+7. Configure Celery:
+```bash
+celery -A stock_management worker --loglevel=info
 ```
 
 ### Frontend Deployment
@@ -73,36 +81,89 @@ cd frontend-svelte
 npm install
 ```
 
-2. Build for production:
-```bash
-npm run build
-```
-
-3. Configure environment:
+2. Configure environment:
 ```bash
 echo "VITE_API_URL=https://api.your-domain.com" > .env
+```
+
+3. Build for production:
+```bash
+npm run build
 ```
 
 ### Nginx Configuration
 
 ```nginx
-# Frontend configuration
+# Main configuration
 server {
     listen 80;
     server_name your-domain.com;
 
-    root /path/to/frontend-svelte/dist;
-    index index.html;
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 10240;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript;
+    gzip_disable "MSIE [1-6]\.";
 
+    # Frontend
     location / {
+        root /path/to/frontend-svelte/dist;
         try_files $uri $uri/ /index.html;
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer-when-downgrade" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';" always;
     }
 
-    # API proxy
+    # Admin interface
+    location /admin/ {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API
     location /api/ {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With' always;
+    }
+
+    # WebSocket support
+    location /ws/ {
+        proxy_pass http://localhost:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    # Static files
+    location /static/ {
+        alias /path/to/static/;
+        expires 1y;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # Media files
+    location /media/ {
+        alias /path/to/media/;
+        expires 1y;
+        add_header Cache-Control "public, no-transform";
     }
 }
 ```
@@ -119,26 +180,39 @@ apt-get install certbot python3-certbot-nginx
 certbot --nginx -d your-domain.com
 ```
 
-## Database Setup
+## Database Backup
 
-1. Create database:
-```sql
-CREATE DATABASE stock_db;
-CREATE USER stock_user WITH PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE stock_db TO stock_user;
-```
-
-2. Configure backup:
+1. Regular backups:
 ```bash
-pg_dump dbname > backup.sql
+# Create backup script
+cat > backup.sh << 'EOF'
+#!/bin/bash
+BACKUP_DIR="/path/to/backups"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DB_NAME="your_db_name"
+
+# Create backup
+pg_dump $DB_NAME > "$BACKUP_DIR/backup_$TIMESTAMP.sql"
+
+# Keep only last 7 days of backups
+find $BACKUP_DIR -name "backup_*.sql" -mtime +7 -delete
+EOF
+
+# Make script executable
+chmod +x backup.sh
+
+# Add to crontab (runs daily at 2 AM)
+echo "0 2 * * * /path/to/backup.sh" | crontab -
 ```
 
 ## Monitoring
 
-1. Install monitoring tools:
-```bash
-pip install prometheus_client
-pip install sentry-sdk
+1. Configure Prometheus metrics:
+```python
+# settings.py
+INSTALLED_APPS += ['django_prometheus']
+MIDDLEWARE = ['django_prometheus.middleware.PrometheusBeforeMiddleware'] + MIDDLEWARE
+MIDDLEWARE += ['django_prometheus.middleware.PrometheusAfterMiddleware']
 ```
 
 2. Configure logging:
@@ -151,6 +225,13 @@ LOGGING = {
             'level': 'INFO',
             'class': 'logging.FileHandler',
             'filename': '/path/to/django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
         },
     },
     'loggers': {
@@ -163,14 +244,18 @@ LOGGING = {
 }
 ```
 
-## Security Considerations
+## Security Checklist
 
 1. Enable HTTPS
-2. Configure CORS properly
-3. Set secure headers
-4. Regular security updates
-5. Implement rate limiting
-6. Use secure cookies
+2. Set secure headers in Nginx
+3. Configure CORS properly
+4. Enable CSRF protection
+5. Set secure cookie flags
+6. Implement rate limiting
+7. Regular security updates
+8. Database connection encryption
+9. Proper file permissions
+10. Firewall configuration
 
 ## Performance Optimization
 
@@ -178,65 +263,27 @@ LOGGING = {
 ```python
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://redis:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
     }
 }
 ```
 
-2. Configure compression:
-```nginx
-gzip on;
-gzip_types text/plain text/css application/json application/javascript;
-```
-
-## Maintenance
-
-1. Regular backups:
-```bash
-0 0 * * * pg_dump dbname > /backups/db-$(date +%Y%m%d).sql
-```
-
-2. Update dependencies:
-```bash
-pip install --upgrade -r requirements.txt
-npm update
-```
-
-3. Monitor logs:
-```bash
-tail -f /path/to/django.log
-```
-
-## Rollback Procedure
-
-1. Database rollback:
-```bash
-psql dbname < backup.sql
-```
-
-2. Code rollback:
-```bash
-git checkout previous-version
-```
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. Database connection issues:
-```bash
-psql -h localhost -U username -d dbname
-```
-
-2. Static files not serving:
-```bash
-python manage.py collectstatic --clear
-```
-
-3. Permission issues:
-```bash
-chown -R www-data:www-data /path/to/static
+2. Configure database connection pooling:
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'your_db_name',
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {
+            'MAX_CONNS': 20
+        }
+    }
+}
 ```
 
 ## Scaling
@@ -246,17 +293,14 @@ chown -R www-data:www-data /path/to/static
 upstream backend {
     server backend1:8000;
     server backend2:8000;
+    keepalive 32;
 }
 ```
 
-2. Cache configuration:
+2. Configure session persistence:
 ```python
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://redis:6379/1',
-    }
-}
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
 ```
 
 Remember to always test deployments in a staging environment before applying to production.
