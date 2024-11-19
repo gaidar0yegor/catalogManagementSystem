@@ -47,23 +47,53 @@
     error = null;
 
     try {
-      // Convert string IDs to numbers
+      // Validate required fields
+      if (!product.name || !product.sku || !product.supplier_id) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Convert string IDs to numbers and ensure required fields
       const formattedProduct = {
         ...product,
         brand_id: product.brand_id ? Number(product.brand_id) : undefined,
         category_id: product.category_id ? Number(product.category_id) : undefined,
-        supplier_id: product.supplier_id ? Number(product.supplier_id) : undefined,
+        supplier_id: Number(product.supplier_id),
         unit_price: Number(product.unit_price),
-        purchase_price: Number(product.purchase_price)
+        purchase_price: Number(product.purchase_price),
+        is_active: product.is_active ?? true
       };
 
-      console.log('Submitting product data:', formattedProduct);
+      console.log('Form data before submission:', product);
+      console.log('Formatted product data:', formattedProduct);
 
-      if (isEdit && product.id) {
-        await productStore.updateProduct(product.id, formattedProduct);
-      } else {
-        await productStore.createProduct(formattedProduct);
+      // Make direct API call to debug
+      const response = await fetch(config.endpoints.products, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          name: formattedProduct.name,
+          sku: formattedProduct.sku,
+          barcode: formattedProduct.barcode,
+          description: formattedProduct.description,
+          unit_price: formattedProduct.unit_price,
+          purchase_price: formattedProduct.purchase_price,
+          brand: formattedProduct.brand_id,
+          category: formattedProduct.category_id,
+          supplier: formattedProduct.supplier_id,
+          is_active: formattedProduct.is_active
+        })
+      });
+
+      const responseData = await response.json();
+      console.log('API Response:', response.status, responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.detail || JSON.stringify(responseData));
       }
+
       dispatch('success');
     } catch (err) {
       error = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -87,7 +117,7 @@
     <!-- Basic Information -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+        <label for="name" class="block text-sm font-medium text-gray-700">Name *</label>
         <input
           type="text"
           id="name"
@@ -98,7 +128,7 @@
       </div>
 
       <div>
-        <label for="sku" class="block text-sm font-medium text-gray-700">SKU</label>
+        <label for="sku" class="block text-sm font-medium text-gray-700">SKU *</label>
         <input
           type="text"
           id="sku"
@@ -119,7 +149,7 @@
       </div>
 
       <div>
-        <label for="supplier" class="block text-sm font-medium text-gray-700">Supplier</label>
+        <label for="supplier" class="block text-sm font-medium text-gray-700">Supplier *</label>
         <select
           id="supplier"
           bind:value={product.supplier_id}
@@ -165,7 +195,7 @@
     <!-- Pricing -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label for="unit_price" class="block text-sm font-medium text-gray-700">List Price</label>
+        <label for="unit_price" class="block text-sm font-medium text-gray-700">List Price *</label>
         <input
           type="number"
           id="unit_price"
@@ -178,7 +208,7 @@
       </div>
 
       <div>
-        <label for="purchase_price" class="block text-sm font-medium text-gray-700">Purchase Price</label>
+        <label for="purchase_price" class="block text-sm font-medium text-gray-700">Purchase Price *</label>
         <input
           type="number"
           id="purchase_price"
@@ -193,7 +223,7 @@
 
     <!-- Description -->
     <div>
-      <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+      <label for="description" class="block text-sm font-medium text-gray-700">Description *</label>
       <textarea
         id="description"
         bind:value={product.description}
@@ -203,9 +233,22 @@
       ></textarea>
     </div>
 
+    <!-- Active Status -->
+    <div class="flex items-center">
+      <input
+        type="checkbox"
+        id="is_active"
+        bind:checked={product.is_active}
+        class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+      />
+      <label for="is_active" class="ml-2 block text-sm text-gray-900">Active</label>
+    </div>
+
     {#if error}
       <div class="text-red-600 text-sm">{error}</div>
     {/if}
+
+    <div class="text-sm text-gray-500">* Required fields</div>
 
     <!-- Form Actions -->
     <div class="flex justify-end space-x-4">
