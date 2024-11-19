@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from django.http import FileResponse, Http404
+import os
+import mimetypes
 import logging
 
 from ..models import (
@@ -41,6 +44,56 @@ class DataUploadHistoryViewSet(viewsets.ModelViewSet):
     filterset_fields = ['upload_type', 'status', 'uploaded_by']
     pagination_class = None  # Disable pagination for this viewset
 
+    @action(detail=True, methods=['GET'], url_path='download')
+    def download_file(self, request, pk=None):
+        try:
+            upload_history = self.get_object()
+            if not upload_history.file_name:
+                return Response(
+                    {'error': 'No file associated with this record'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            file_path = os.path.join('/app/upload_temp', upload_history.file_name)
+            if not os.path.exists(file_path):
+                logger.error(f"File not found at path: {file_path}")
+                return Response(
+                    {'error': 'File not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Get the file's mime type
+            content_type, _ = mimetypes.guess_type(file_path)
+            if not content_type:
+                content_type = 'application/octet-stream'
+
+            # Open the file in binary mode
+            file_handle = open(file_path, 'rb')
+            response = FileResponse(
+                file_handle,
+                content_type=content_type,
+                as_attachment=True,
+                filename=upload_history.file_name
+            )
+
+            # Add Content-Length header
+            response['Content-Length'] = os.path.getsize(file_path)
+
+            return response
+
+        except Http404:
+            logger.error(f"Record not found for ID: {pk}")
+            return Response(
+                {'error': 'Record not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error downloading file: {str(e)}")
+            return Response(
+                {'error': 'Failed to download file', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['POST'], url_path='upload-file')
     def upload_file(self, request):
         try:
@@ -60,6 +113,15 @@ class DataUploadHistoryViewSet(viewsets.ModelViewSet):
                 records_processed=0,
                 records_failed=0
             )
+
+            # Ensure upload directory exists
+            os.makedirs('/app/upload_temp', exist_ok=True)
+
+            # Save the file
+            file_path = os.path.join('/app/upload_temp', uploaded_file.name)
+            with open(file_path, 'wb+') as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
 
             # Process the file
             try:
@@ -132,6 +194,15 @@ class DataUploadHistoryViewSet(viewsets.ModelViewSet):
                 records_processed=0,
                 records_failed=0
             )
+
+            # Ensure upload directory exists
+            os.makedirs('/app/upload_temp', exist_ok=True)
+
+            # Save the file
+            file_path = os.path.join('/app/upload_temp', uploaded_file.name)
+            with open(file_path, 'wb+') as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
 
             try:
                 # Process product import
