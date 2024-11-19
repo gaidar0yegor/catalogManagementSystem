@@ -24,7 +24,7 @@
 <aside class="fixed inset-y-0 left-0 bg-gray-800 {isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300">
   <div class="h-16 flex items-center justify-between px-4">
     {#if !isCollapsed}
-      <span class="text-white font-semibold">Stock Management</span>
+      <span class="text-white font-semibold">Catalog Management</span>
     {/if}
     <button
       class="text-gray-300 hover:text-white"

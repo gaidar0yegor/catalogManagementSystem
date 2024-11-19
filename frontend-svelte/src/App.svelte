@@ -96,7 +96,7 @@
     <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 {isSidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300">
       <header class="bg-white shadow-sm">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 class="text-2xl font-semibold text-gray-900">Stock Management System</h1>
+          <h1 class="text-2xl font-semibold text-gray-900">Catalog Management v0.1.2</h1>
           <button
             class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
             on:click={() => authStore.logout()}
