@@ -1,10 +1,22 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Product, Category, Brand } from '../stores/productStore';
+  import type { Product, Category, Brand, Supplier } from '../stores/productStore';
   import { productStore } from '../stores/productStore';
+  import { supplierStore } from '../stores/supplierStore';
   import { config } from '../config';
 
-  export let product: Partial<Product> = {};
+  export let product: Partial<Product> = {
+    name: '',
+    sku: '',
+    barcode: '',
+    description: '',
+    unit_price: 0,
+    purchase_price: 0,
+    brand_id: undefined,
+    category_id: undefined,
+    supplier_id: undefined,
+    is_active: true
+  };
   export let isEdit = false;
 
   const dispatch = createEventDispatcher();
@@ -13,30 +25,49 @@
   let error: string | null = null;
   let categories: Category[] = [];
   let brands: Brand[] = [];
+  let suppliers: Supplier[] = [];
 
-  // Subscribe to store for categories and brands
+  // Subscribe to stores
   productStore.subscribe(state => {
     categories = state.categories;
     brands = state.brands;
   });
 
-  // Fetch categories and brands when component mounts
+  supplierStore.subscribe(state => {
+    suppliers = state.suppliers;
+  });
+
+  // Fetch data when component mounts
   productStore.fetchCategories();
   productStore.fetchBrands();
+  supplierStore.fetchSuppliers();
 
   async function handleSubmit() {
     loading = true;
     error = null;
 
     try {
+      // Convert string IDs to numbers
+      const formattedProduct = {
+        ...product,
+        brand_id: product.brand_id ? Number(product.brand_id) : undefined,
+        category_id: product.category_id ? Number(product.category_id) : undefined,
+        supplier_id: product.supplier_id ? Number(product.supplier_id) : undefined,
+        unit_price: Number(product.unit_price),
+        purchase_price: Number(product.purchase_price)
+      };
+
+      console.log('Submitting product data:', formattedProduct);
+
       if (isEdit && product.id) {
-        await productStore.updateProduct(product.id, product);
+        await productStore.updateProduct(product.id, formattedProduct);
       } else {
-        await productStore.createProduct(product);
+        await productStore.createProduct(formattedProduct);
       }
       dispatch('success');
     } catch (err) {
       error = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error('Error submitting product:', error);
     } finally {
       loading = false;
     }
@@ -88,10 +119,25 @@
       </div>
 
       <div>
+        <label for="supplier" class="block text-sm font-medium text-gray-700">Supplier</label>
+        <select
+          id="supplier"
+          bind:value={product.supplier_id}
+          required
+          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+        >
+          <option value="">Select Supplier</option>
+          {#each suppliers as supplier}
+            <option value={supplier.id}>{supplier.name}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div>
         <label for="brand" class="block text-sm font-medium text-gray-700">Brand</label>
         <select
           id="brand"
-          bind:value={product.brand}
+          bind:value={product.brand_id}
           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
         >
           <option value="">Select Brand</option>
@@ -105,7 +151,7 @@
         <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
         <select
           id="category"
-          bind:value={product.category}
+          bind:value={product.category_id}
           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
         >
           <option value="">Select Category</option>
@@ -152,6 +198,7 @@
         id="description"
         bind:value={product.description}
         rows="4"
+        required
         class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
       ></textarea>
     </div>

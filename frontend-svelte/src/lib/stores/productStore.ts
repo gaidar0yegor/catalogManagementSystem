@@ -10,11 +10,18 @@ export interface Product {
   unit_price: number;
   purchase_price: number;
   current_stock: number;
+  brand_id?: number;
+  category_id?: number;
+  supplier_id: number;
   brand?: {
     id: number;
     name: string;
   };
   category?: {
+    id: number;
+    name: string;
+  };
+  supplier: {
     id: number;
     name: string;
   };
@@ -31,6 +38,13 @@ export interface Category {
 export interface Brand {
   id: number;
   name: string;
+}
+
+export interface Supplier {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
 }
 
 interface ProductState {
@@ -102,58 +116,6 @@ function createProductStore() {
       }
     },
 
-    // Fetch categories
-    async fetchCategories() {
-      console.log('Fetching categories from:', config.endpoints.categories);
-      try {
-        const response = await fetch(config.endpoints.categories, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
-        }
-
-        const data = await response.json();
-        console.log('Categories API response:', data);
-        const categories = handlePaginatedResponse<Category>(data);
-        console.log('Processed categories:', categories);
-        update(state => ({ ...state, categories }));
-      } catch (err) {
-        const error = err instanceof Error ? err.message : 'An unknown error occurred';
-        console.error('Error fetching categories:', error);
-        update(state => ({ ...state, error }));
-      }
-    },
-
-    // Fetch brands
-    async fetchBrands() {
-      console.log('Fetching brands from:', config.endpoints.brands);
-      try {
-        const response = await fetch(config.endpoints.brands, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch brands');
-        }
-
-        const data = await response.json();
-        console.log('Brands API response:', data);
-        const brands = handlePaginatedResponse<Brand>(data);
-        console.log('Processed brands:', brands);
-        update(state => ({ ...state, brands }));
-      } catch (err) {
-        const error = err instanceof Error ? err.message : 'An unknown error occurred';
-        console.error('Error fetching brands:', error);
-        update(state => ({ ...state, error }));
-      }
-    },
-
     // Create new product
     async createProduct(productData: Partial<Product>): Promise<Product> {
       update(state => ({ ...state, loading: true, error: null }));
@@ -166,7 +128,12 @@ function createProductStore() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
-          body: JSON.stringify(productData)
+          body: JSON.stringify({
+            ...productData,
+            brand: productData.brand_id,
+            category: productData.category_id,
+            supplier: productData.supplier_id
+          })
         });
 
         if (!response.ok) {
@@ -202,7 +169,12 @@ function createProductStore() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
-          body: JSON.stringify(productData)
+          body: JSON.stringify({
+            ...productData,
+            brand: productData.brand_id,
+            category: productData.category_id,
+            supplier: productData.supplier_id
+          })
         });
 
         if (!response.ok) {
@@ -253,6 +225,58 @@ function createProductStore() {
         const error = err instanceof Error ? err.message : 'An unknown error occurred';
         console.error('Error deleting product:', error);
         update(state => ({ ...state, error, loading: false }));
+      }
+    },
+
+    // Fetch categories
+    async fetchCategories() {
+      console.log('Fetching categories from:', config.endpoints.categories);
+      try {
+        const response = await fetch(config.endpoints.categories, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch categories');
+        }
+
+        const data = await response.json();
+        console.log('Categories API response:', data);
+        const categories = handlePaginatedResponse<Category>(data);
+        console.log('Processed categories:', categories);
+        update(state => ({ ...state, categories }));
+      } catch (err) {
+        const error = err instanceof Error ? err.message : 'An unknown error occurred';
+        console.error('Error fetching categories:', error);
+        update(state => ({ ...state, error }));
+      }
+    },
+
+    // Fetch brands
+    async fetchBrands() {
+      console.log('Fetching brands from:', config.endpoints.brands);
+      try {
+        const response = await fetch(config.endpoints.brands, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch brands');
+        }
+
+        const data = await response.json();
+        console.log('Brands API response:', data);
+        const brands = handlePaginatedResponse<Brand>(data);
+        console.log('Processed brands:', brands);
+        update(state => ({ ...state, brands }));
+      } catch (err) {
+        const error = err instanceof Error ? err.message : 'An unknown error occurred';
+        console.error('Error fetching brands:', error);
+        update(state => ({ ...state, error }));
       }
     },
 
