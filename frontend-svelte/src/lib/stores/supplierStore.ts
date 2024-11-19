@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { config } from '../config';
 
 export interface Supplier {
   id: number;
@@ -42,7 +43,7 @@ function createSupplierStore() {
           queryParams.append('search', searchQuery);
         }
 
-        const response = await fetch(`/api/suppliers/?${queryParams.toString()}`, {
+        const response = await fetch(`${config.endpoints.suppliers}?${queryParams.toString()}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -52,7 +53,9 @@ function createSupplierStore() {
           throw new Error('Failed to fetch suppliers');
         }
 
-        const suppliers = await response.json();
+        const data = await response.json();
+        const suppliers = Array.isArray(data) ? data : data.results || [];
+        
         update(state => ({ ...state, suppliers, loading: false }));
       } catch (err) {
         const error = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -65,7 +68,7 @@ function createSupplierStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const response = await fetch('/api/suppliers/', {
+        const response = await fetch(config.endpoints.suppliers, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -98,7 +101,7 @@ function createSupplierStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const response = await fetch(`/api/suppliers/${supplierId}/`, {
+        const response = await fetch(`${config.endpoints.suppliers}${supplierId}/`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -131,7 +134,7 @@ function createSupplierStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const response = await fetch(`/api/suppliers/${supplierId}/`, {
+        const response = await fetch(`${config.endpoints.suppliers}${supplierId}/`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`

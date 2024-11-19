@@ -53,33 +53,6 @@
     handleSearch();
   }
 
-  // Export products to CSV
-  async function exportProducts(): Promise<void> {
-    try {
-      const response = await fetch('/api/products/export_products/', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to export products');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'products.csv';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'An unknown error occurred';
-    }
-  }
-
   // Handle add new product
   function handleAddNew(): void {
     editingProduct = {};
@@ -98,6 +71,7 @@
       return;
     }
     await productStore.deleteProduct(productId);
+    productStore.fetchProducts();
   }
 
   // Handle form success
@@ -114,6 +88,7 @@
   }
 
   onMount(() => {
+    // Fetch initial data
     productStore.fetchProducts();
     productStore.fetchCategories();
     productStore.fetchBrands();
@@ -124,12 +99,6 @@
   <div class="mb-6 flex justify-between items-center">
     <h2 class="text-2xl font-bold text-gray-900">Product Catalog</h2>
     <div class="space-x-4">
-      <button
-        on:click={exportProducts}
-        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-      >
-        Export to CSV
-      </button>
       <button
         on:click={handleAddNew}
         class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
@@ -206,7 +175,7 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.brand?.name || '-'}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category?.name || '-'}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.current_stock}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.current_stock || 0}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.unit_price}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <button

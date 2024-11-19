@@ -1,5 +1,20 @@
 from django.contrib import admin
-from .models import Supplier, Product, Stock, StockMovement, DataUploadHistory, Notification
+from .models import (
+    Supplier, Product, Stock, StockMovement, 
+    DataUploadHistory, Notification, Brand, Category
+)
+
+@admin.register(Brand)
+class BrandAdmin(admin.ModelAdmin):
+    list_display = ('name', 'website', 'created_at', 'updated_at')
+    search_fields = ('name',)
+    list_filter = ('created_at',)
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'parent', 'created_at', 'updated_at')
+    search_fields = ('name',)
+    list_filter = ('created_at',)
 
 @admin.register(Supplier)
 class SupplierAdmin(admin.ModelAdmin):
@@ -9,9 +24,9 @@ class SupplierAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sku', 'supplier', 'unit_price', 'created_at')
+    list_display = ('name', 'sku', 'supplier', 'brand', 'category', 'unit_price', 'created_at')
     search_fields = ('name', 'sku')
-    list_filter = ('supplier', 'created_at')
+    list_filter = ('supplier', 'brand', 'category', 'created_at')
 
 @admin.register(Stock)
 class StockAdmin(admin.ModelAdmin):

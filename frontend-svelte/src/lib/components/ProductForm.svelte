@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { Product, Category, Brand } from '../stores/productStore';
   import { productStore } from '../stores/productStore';
+  import { config } from '../config';
 
   export let product: Partial<Product> = {};
   export let isEdit = false;
@@ -19,30 +20,21 @@
     brands = state.brands;
   });
 
+  // Fetch categories and brands when component mounts
+  productStore.fetchCategories();
+  productStore.fetchBrands();
+
   async function handleSubmit() {
     loading = true;
     error = null;
 
     try {
-      const url = isEdit ? `/api/products/${product.id}/` : '/api/products/';
-      const method = isEdit ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(product)
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Failed to save product');
+      if (isEdit && product.id) {
+        await productStore.updateProduct(product.id, product);
+      } else {
+        await productStore.createProduct(product);
       }
-
-      const savedProduct = await response.json();
-      dispatch('success', savedProduct);
+      dispatch('success');
     } catch (err) {
       error = err instanceof Error ? err.message : 'An unknown error occurred';
     } finally {
