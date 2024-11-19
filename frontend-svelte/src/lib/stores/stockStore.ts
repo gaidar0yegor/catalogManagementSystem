@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import axios from 'axios';
+import { config } from '../config';
 
 // Types
 export interface Product {
@@ -61,15 +61,32 @@ const initialState: StockState = {
 function createStockStore() {
     const { subscribe, set, update } = writable<StockState>(initialState);
 
+    function handlePaginatedResponse<T>(data: any): T[] {
+        if (data.results && Array.isArray(data.results)) {
+            return data.results;
+        }
+        if (Array.isArray(data)) {
+            return data;
+        }
+        return [];
+    }
+
     return {
         subscribe,
         fetchProducts: async () => {
             update(state => ({ ...state, loading: true, error: null }));
             try {
-                const response = await axios.get('/api/products/');
+                const response = await fetch(config.endpoints.products, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch products');
+                const data = await response.json();
+                const products = handlePaginatedResponse<Product>(data);
                 update(state => ({
                     ...state,
-                    products: response.data,
+                    products,
                     loading: false
                 }));
             } catch (error: any) {
@@ -77,7 +94,7 @@ function createStockStore() {
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.response?.data?.detail || error.message || 'Failed to fetch products'
+                    error: error.message || 'Failed to fetch products'
                 }));
             }
         },
@@ -85,13 +102,30 @@ function createStockStore() {
         fetchStocks: async () => {
             update(state => ({ ...state, loading: true, error: null }));
             try {
-                const response = await axios.get('/api/stocks/');
-                const stocks: Stock[] = response.data;
+                const response = await fetch(config.endpoints.stocks, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch stocks');
+                const data = await response.json();
+                console.log('Stock API response:', data);
+                const stocks = handlePaginatedResponse<Stock>(data);
+                console.log('Processed stocks:', stocks);
+                
+                // Only filter if stocks is an array
+                const lowStockItems = Array.isArray(stocks) 
+                    ? stocks.filter(stock => stock.quantity <= stock.minimum_threshold)
+                    : [];
+                const highStockItems = Array.isArray(stocks)
+                    ? stocks.filter(stock => stock.quantity >= stock.maximum_threshold)
+                    : [];
+
                 update(state => ({
                     ...state,
                     stocks,
-                    lowStockItems: stocks.filter((stock: Stock) => stock.quantity <= stock.minimum_threshold),
-                    highStockItems: stocks.filter((stock: Stock) => stock.quantity >= stock.maximum_threshold),
+                    lowStockItems,
+                    highStockItems,
                     loading: false
                 }));
             } catch (error: any) {
@@ -99,7 +133,7 @@ function createStockStore() {
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.response?.data?.detail || error.message || 'Failed to fetch stocks'
+                    error: error.message || 'Failed to fetch stocks'
                 }));
             }
         },
@@ -107,10 +141,17 @@ function createStockStore() {
         fetchStockMovements: async () => {
             update(state => ({ ...state, loading: true, error: null }));
             try {
-                const response = await axios.get('/api/stock-movements/');
+                const response = await fetch(config.endpoints.stockMovements, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch stock movements');
+                const data = await response.json();
+                const movements = handlePaginatedResponse<StockMovement>(data);
                 update(state => ({
                     ...state,
-                    movements: response.data,
+                    movements,
                     loading: false
                 }));
             } catch (error: any) {
@@ -118,7 +159,7 @@ function createStockStore() {
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.response?.data?.detail || error.message || 'Failed to fetch stock movements'
+                    error: error.message || 'Failed to fetch stock movements'
                 }));
             }
         },
@@ -126,8 +167,16 @@ function createStockStore() {
         createStockMovement: async (movementData: Partial<StockMovement>) => {
             update(state => ({ ...state, loading: true, error: null }));
             try {
-                const response = await axios.post('/api/stock-movements/', movementData);
-                const newMovement = response.data;
+                const response = await fetch(config.endpoints.stockMovements, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(movementData)
+                });
+                if (!response.ok) throw new Error('Failed to create stock movement');
+                const newMovement = await response.json();
                 update(state => {
                     const updatedStocks = state.stocks.map(stock =>
                         stock.product === newMovement.product
@@ -153,7 +202,7 @@ function createStockStore() {
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.response?.data?.detail || error.message || 'Failed to create stock movement'
+                    error: error.message || 'Failed to create stock movement'
                 }));
             }
         },
@@ -161,10 +210,16 @@ function createStockStore() {
         fetchDailySummary: async () => {
             update(state => ({ ...state, loading: true, error: null }));
             try {
-                const response = await axios.get('/api/stock-movements/daily_summary/');
+                const response = await fetch(config.endpoints.dailySummary, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch daily summary');
+                const data = await response.json();
                 update(state => ({
                     ...state,
-                    dailySummary: response.data,
+                    dailySummary: data,
                     loading: false
                 }));
             } catch (error: any) {
@@ -172,7 +227,7 @@ function createStockStore() {
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.response?.data?.detail || error.message || 'Failed to fetch daily summary'
+                    error: error.message || 'Failed to fetch daily summary'
                 }));
             }
         },
@@ -180,10 +235,16 @@ function createStockStore() {
         fetchWeeklySummary: async () => {
             update(state => ({ ...state, loading: true, error: null }));
             try {
-                const response = await axios.get('/api/stock-movements/weekly_summary/');
+                const response = await fetch(config.endpoints.weeklySummary, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch weekly summary');
+                const data = await response.json();
                 update(state => ({
                     ...state,
-                    weeklySummary: response.data,
+                    weeklySummary: data,
                     loading: false
                 }));
             } catch (error: any) {
@@ -191,7 +252,7 @@ function createStockStore() {
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.response?.data?.detail || error.message || 'Failed to fetch weekly summary'
+                    error: error.message || 'Failed to fetch weekly summary'
                 }));
             }
         },
