@@ -33,12 +33,13 @@ class WebScraperConfigViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 class DataUploadHistoryViewSet(viewsets.ModelViewSet):
-    queryset = DataUploadHistory.objects.all()
+    queryset = DataUploadHistory.objects.all().order_by('-upload_date')  # Order by newest first
     serializer_class = DataUploadHistorySerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ['file_name']
     filterset_fields = ['upload_type', 'status', 'uploaded_by']
+    pagination_class = None  # Disable pagination for this viewset
 
     @action(detail=False, methods=['POST'], url_path='upload-file')
     def upload_file(self, request):
