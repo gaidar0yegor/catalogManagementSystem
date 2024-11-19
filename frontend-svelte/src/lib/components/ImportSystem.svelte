@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { importStore, type ImportConfig, type WebScraperConfig, type ImportHistory } from '../stores/importStore';
   import FtpConfigForm from './FtpConfigForm.svelte';
   import ScraperConfigForm from './ScraperConfigForm.svelte';
@@ -11,6 +11,7 @@
   let loading = false;
   let error: string | null = null;
   let successMessage: string | null = null;
+  let refreshInterval: number;
 
   // Form visibility state
   let showFtpForm = false;
@@ -42,15 +43,18 @@
     }, 5000);
   }
 
-  // Refresh import history
+  // Refresh import history without changing tab
   async function refreshHistory() {
     try {
       await importStore.fetchImportHistory();
-      // Switch to history tab after successful upload
-      activeTab = 'history';
     } catch (err) {
       console.error('Error refreshing history:', err);
     }
+  }
+
+  // Switch to history tab (only used after successful upload)
+  function switchToHistory() {
+    activeTab = 'history';
   }
 
   // Handle file download
@@ -85,6 +89,7 @@
       successMessage = `File "${selectedFile.name}" uploaded successfully`;
       // After successful upload, refresh history and switch to history tab
       await refreshHistory();
+      switchToHistory();
       // Reset form
       selectedFile = null;
       input.value = '';
@@ -111,6 +116,7 @@
       successMessage = `File "${selectedFile.name}" imported successfully`;
       // After successful import, refresh history and switch to history tab
       await refreshHistory();
+      switchToHistory();
       // Reset form
       selectedFile = null;
       previewData = [];
@@ -130,10 +136,17 @@
       importStore.fetchScraperConfigs(),
       importStore.fetchImportHistory()
     ]);
+
+    // Set up auto-refresh interval
+    refreshInterval = setInterval(refreshHistory, 30000);
   });
 
-  // Auto-refresh history every 30 seconds
-  setInterval(refreshHistory, 30000);
+  onDestroy(() => {
+    // Clean up interval when component is destroyed
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+    }
+  });
 </script>
 
 <div class="bg-white shadow-sm rounded-lg p-6">
