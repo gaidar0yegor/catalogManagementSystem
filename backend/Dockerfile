@@ -17,12 +17,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy entrypoint script first
 COPY entrypoint.sh .
+
+# Fix line endings and set permissions
 RUN dos2unix entrypoint.sh && \
     chmod +x entrypoint.sh && \
-    ls -la entrypoint.sh  # Verify file exists and permissions
-
-# Create necessary directories with proper permissions
-RUN mkdir -p /app/static /app/media /app/upload_temp && \
+    ls -la entrypoint.sh && \
+    # Create necessary directories with proper permissions
+    mkdir -p /app/static /app/media /app/upload_temp && \
     chmod -R 755 /app/static /app/media /app/upload_temp
 
 # Copy project files
@@ -41,5 +42,8 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 8000
 
-# Set entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Set shell for entrypoint
+SHELL ["/bin/bash", "-c"]
+
+# Set entrypoint with explicit shell
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
