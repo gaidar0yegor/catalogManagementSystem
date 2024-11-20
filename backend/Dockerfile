@@ -1,4 +1,3 @@
-# Build stage
 FROM python:3.9-slim
 
 # Set working directory
@@ -22,12 +21,18 @@ RUN dos2unix entrypoint.sh && \
     chmod +x entrypoint.sh && \
     ls -la entrypoint.sh  # Verify file exists and permissions
 
-# Create necessary directories
+# Create necessary directories with proper permissions
 RUN mkdir -p /app/static /app/media /app/upload_temp && \
     chmod -R 755 /app/static /app/media /app/upload_temp
 
 # Copy project files
 COPY . .
+
+# Ensure entrypoint script has proper permissions after final copy
+RUN chmod +x /app/entrypoint.sh && \
+    ls -la /app/entrypoint.sh && \
+    chown -R root:root /app && \
+    chmod -R 755 /app
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -36,5 +41,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 8000
 
-# Set default command
-CMD ["/app/entrypoint.sh"]
+# Set entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]

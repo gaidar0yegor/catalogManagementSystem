@@ -35,6 +35,6 @@ END
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Start Django development server
-echo "Starting Django development server..."
-python manage.py runserver 0.0.0.0:8000
+# Start Gunicorn
+echo "Starting Gunicorn..."
+exec gunicorn stock_management.wsgi:application --bind 0.0.0.0:8000 --workers 3
