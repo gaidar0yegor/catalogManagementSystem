@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     netcat-openbsd \
     dos2unix \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
@@ -21,7 +22,6 @@ COPY entrypoint.sh .
 # Fix line endings and set permissions
 RUN dos2unix entrypoint.sh && \
     chmod +x entrypoint.sh && \
-    ls -la entrypoint.sh && \
     # Create necessary directories with proper permissions
     mkdir -p /app/static /app/media /app/upload_temp && \
     chmod -R 755 /app/static /app/media /app/upload_temp
@@ -29,15 +29,15 @@ RUN dos2unix entrypoint.sh && \
 # Copy project files
 COPY . .
 
-# Ensure entrypoint script has proper permissions after final copy
+# Ensure proper permissions
 RUN chmod +x /app/entrypoint.sh && \
-    ls -la /app/entrypoint.sh && \
     chown -R root:root /app && \
     chmod -R 755 /app
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PATH="/app:${PATH}"
 
 # Expose port
 EXPOSE 8000

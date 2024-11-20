@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 echo "Starting entrypoint script..."
 
@@ -15,7 +16,8 @@ chmod -R 755 /app/upload_temp
 # Wait for database
 echo "Waiting for database..."
 while ! nc -z $DB_HOST $DB_PORT; do
-    sleep 0.1
+    sleep 1
+    echo "Still waiting for database..."
 done
 echo "Database started"
 
@@ -35,6 +37,30 @@ END
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Start Gunicorn
+# Create health check endpoint
+mkdir -p stock_management/health/
+cat > stock_management/health/views.py << EOL
+from django.http import HttpResponse
+
+def health_check(request):
+    return HttpResponse("OK")
+EOL
+
+# Update urls.py to include health check
+cat >> stock_management/urls.py << EOL
+from .health.views import health_check
+
+urlpatterns += [
+    path('health/', health_check, name='health_check'),
+]
+EOL
+
+# Start Gunicorn with proper settings
 echo "Starting Gunicorn..."
-exec gunicorn stock_management.wsgi:application --bind 0.0.0.0:8000 --workers 3
+exec gunicorn stock_management.wsgi:application \
+    --bind 0.0.0.0:8000 \
+    --workers 3 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level debug
