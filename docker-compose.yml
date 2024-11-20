@@ -17,14 +17,14 @@ services:
       start_period: 40s
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     volumes:
-      - ./backend:/app
       - static_volume:/app/static
       - media_volume:/app/media
       - upload_temp:/app/upload_temp
@@ -63,7 +63,6 @@ services:
     entrypoint: celery
     command: -A stock_management worker -l info
     volumes:
-      - ./backend:/app
       - static_volume:/app/static
       - media_volume:/app/media
       - upload_temp:/app/upload_temp
@@ -129,7 +128,7 @@ services:
       frontend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health/"]
       interval: 30s
       timeout: 10s
       retries: 3
