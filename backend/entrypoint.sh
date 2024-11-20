@@ -37,15 +37,6 @@ END
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Create health check view
-mkdir -p stock_management/health
-cat > stock_management/health/views.py << EOL
-from django.http import HttpResponse
-
-def health_check(request):
-    return HttpResponse("OK")
-EOL
-
 # Start Gunicorn with proper settings
 echo "Starting Gunicorn..."
 exec gunicorn stock_management.wsgi:application \
